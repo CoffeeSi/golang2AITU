@@ -1,24 +1,30 @@
 package usecase
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment1/appointment-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment1/appointment-service/internal/repository"
 	"github.com/CoffeeSi/golang2AITU/assignment1/appointment-service/internal/transport/http/dto"
 )
 
+var ServiceUnavailableError = errors.New("doctor service is temporarily unavailable")
+
 type AppointmentUsecase struct {
 	repo             repository.AppointmentRepositoryInterface
 	doctorServiceURL string
+	httpClient       *http.Client
 }
 
 func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, doctorServiceURL string) AppointmentUsecase {
 	return AppointmentUsecase{
 		repo:             repo,
 		doctorServiceURL: doctorServiceURL,
+		httpClient:       &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
@@ -61,9 +67,9 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(id string, request dto.Upd
 }
 
 func (uc *AppointmentUsecase) doctorExists(doctorID string) error {
-	resp, err := http.Get(fmt.Sprintf("%s/doctors/%s", uc.doctorServiceURL, doctorID))
+	resp, err := uc.httpClient.Get(fmt.Sprintf("%s/doctors/%s", uc.doctorServiceURL, doctorID))
 	if err != nil {
-		return fmt.Errorf("doctor service unavailable")
+		return ServiceUnavailableError
 	}
 	defer resp.Body.Close()
 
@@ -75,5 +81,5 @@ func (uc *AppointmentUsecase) doctorExists(doctorID string) error {
 		return fmt.Errorf("doctor with id %s not found", doctorID)
 	}
 
-	return fmt.Errorf("doctor service unavailable")
+	return ServiceUnavailableError
 }

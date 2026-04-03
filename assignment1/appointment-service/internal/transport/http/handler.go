@@ -28,8 +28,8 @@ func (h *AppointmentHandler) CreateAppointmentHandler(c *gin.Context) {
 		return
 	}
 	if err := h.uc.CreateAppointment(request); err != nil {
-		if errors.Is(err, errors.New("doctor service unavailable")) {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "doctor service is temporarily unavailable, please try again later"})
+		if errors.Is(err, usecase.ServiceUnavailableError) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "doctor service is temporarily unavailable"})
 			return
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -75,8 +75,8 @@ func (h *AppointmentHandler) UpdateAppointmentStatusHandler(c *gin.Context) {
 	}
 
 	if err := h.uc.UpdateAppointmentStatus(id, request); err != nil {
-		if errors.Is(err, errors.New("doctor service unavailable")) {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "doctor service is temporarily unavailable, please try again later"})
+		if errors.Is(err, usecase.ServiceUnavailableError) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "doctor service is temporarily unavailable"})
 			return
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
