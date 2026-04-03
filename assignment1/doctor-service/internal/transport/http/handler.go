@@ -26,7 +26,7 @@ func (h *DoctorHandler) CreateDoctorHandler(c *gin.Context) {
 		return
 	}
 	if err := h.uc.CreateDoctor(request); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "doctor created successfully"})
@@ -49,7 +49,7 @@ func (h *DoctorHandler) GetDoctorByIDHandler(c *gin.Context) {
 func (h *DoctorHandler) ListDoctorsHandler(c *gin.Context) {
 	doctors, err := h.uc.ListDoctors()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	} 
 	if len(doctors) == 0 {
