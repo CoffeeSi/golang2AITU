@@ -23,7 +23,7 @@ func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, docto
 }
 
 func (uc *AppointmentUsecase) CreateAppointment(request dto.CreateAppointmentRequest) error {
-	if err := uc.ensureDoctorAvailable(request.DoctorID); err != nil {
+	if err := uc.doctorExists(request.DoctorID); err != nil {
 		return err
 	}
 	return uc.repo.CreateAppointment(request)
@@ -46,7 +46,7 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(id string, request dto.Upd
 		return fmt.Errorf("appointment not found")
 	}
 
-	if err := uc.ensureDoctorAvailable(appointment.DoctorID); err != nil {
+	if err := uc.doctorExists(appointment.DoctorID); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(id string, request dto.Upd
 	return uc.repo.UpdateAppointmentStatus(id, request)
 }
 
-func (uc *AppointmentUsecase) ensureDoctorAvailable(doctorID string) error {
+func (uc *AppointmentUsecase) doctorExists(doctorID string) error {
 	resp, err := http.Get(fmt.Sprintf("%s/doctors/%s", uc.doctorServiceURL, doctorID))
 	if err != nil {
 		return fmt.Errorf("doctor service unavailable")

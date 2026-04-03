@@ -107,6 +107,31 @@ The Appointment Service uses this response to decide whether booking can proceed
 
 Prerequisites:
 
+Step 0: Configure .env files in each service folder
+
+For Doctor Service (.env):
+
+```
+    DB_USER="postgres"
+    DB_PASSWORD="admin"
+    DB_HOST="localhost"
+    DB_PORT="5432"
+    DB_NAME="appointment"
+    DB_TIMEZONE="Asia/Almaty"
+```
+
+For Appointment Service (.env):
+
+```
+    DB_USER="postgres"
+    DB_PASSWORD="admin"
+    DB_HOST="localhost"
+    DB_PORT="5432"
+    DB_NAME="appointment"
+    DB_TIMEZONE="Asia/Almaty"
+    DOCTOR_SERVICE_URL="http://localhost:8080"
+```
+
 Step 1: start Doctor Service
 
 ```powershell
