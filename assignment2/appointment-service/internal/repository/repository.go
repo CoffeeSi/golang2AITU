@@ -40,14 +40,19 @@ func (r AppointmentRepository) ListAppointments(ctx context.Context) ([]*model.A
 	return appointments, nil
 }
 
-func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id string, appointment_status string) (*model.Appointment, error) {
+func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id string, status string) (*model.Appointment, error) {
 	var appointment model.Appointment
-	res := r.db.WithContext(ctx).Model(&appointment).Where("id = ?", id).Update("status", appointment_status).First(&appointment)
+	res := r.db.WithContext(ctx).Model(&appointment).Where("id = ?", id).Update("status", status)
 	if res.Error != nil {
 		return nil, res.Error
 	}
 	if res.RowsAffected == 0 {
 		return nil, model.AppointmentNotFoundError
 	}
+
+	if err := r.db.WithContext(ctx).First(&appointment, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+
 	return &appointment, nil
 }
