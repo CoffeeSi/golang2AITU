@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/client"
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/repository"
 	grpc_handler "github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/transport/grpc"
@@ -49,11 +50,13 @@ func Run(port string) error {
 		return err
 	}
 
+	doctorClient := client.NewDoctorClient(conn)
+
 	// Repository initialization
 	repo := repository.NewAppointmentRepository(db)
 
 	// Usecase initialization
-	uc := usecase.NewAppointmentUsecase(repo, doctorServiceURL, conn)
+	uc := usecase.NewAppointmentUsecase(repo, doctorClient)
 
 	server, err := net.Listen("tcp", port)
 	if err != nil {

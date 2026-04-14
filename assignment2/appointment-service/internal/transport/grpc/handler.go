@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/model"
@@ -32,7 +33,16 @@ func (h *AppointmentHandler) CreateAppointment(ctx context.Context, request *pb.
 
 	err := h.uc.CreateAppointment(ctx, newAppointment)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, model.ServiceUnavailableError) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		if errors.Is(err, model.InvalidArgumentCreateError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.DoctorDoesNotExistError) {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.AppointmentResponse{
 		Id:          newAppointment.ID,
@@ -46,12 +56,16 @@ func (h *AppointmentHandler) CreateAppointment(ctx context.Context, request *pb.
 }
 
 func (h *AppointmentHandler) GetAppointment(ctx context.Context, request *pb.GetAppointmentRequest) (*pb.AppointmentResponse, error) {
-	appointment, err := h.uc.GetAppointment(request)
+	appointment_id := request.Id
+	appointment, err := h.uc.GetAppointment(ctx, appointment_id)
 	if err != nil {
-		return nil, err
-	}
-	if appointment == nil {
-		return nil, status.Error(codes.NotFound, "appointment not found")
+		if errors.Is(err, model.AppointmentNotFoundError) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		if errors.Is(err, model.InvalidArgumentGetError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.AppointmentResponse{
 		Id:          appointment.ID,
@@ -65,7 +79,7 @@ func (h *AppointmentHandler) GetAppointment(ctx context.Context, request *pb.Get
 }
 
 func (h *AppointmentHandler) ListAppointments(ctx context.Context, request *pb.ListAppointmentsRequest) (*pb.ListAppointmentsResponse, error) {
-	appointments, err := h.uc.ListAppointments()
+	appointments, err := h.uc.ListAppointments(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +99,25 @@ func (h *AppointmentHandler) ListAppointments(ctx context.Context, request *pb.L
 }
 
 func (h *AppointmentHandler) UpdateAppointmentStatus(ctx context.Context, request *pb.UpdateStatusRequest) (*pb.AppointmentResponse, error) {
-	appointment, err := h.uc.UpdateAppointmentStatus(request)
+	appointment_id, appointment_status := request.Id, request.Status
+	appointment, err := h.uc.UpdateAppointmentStatus(ctx, appointment_id, appointment_status)
 	if err != nil {
-		return nil, err
-	}
-	if appointment == nil {
-		return nil, status.Error(codes.Internal, "updated appointment is empty")
+		if errors.Is(err, model.InvalidArgumentUpdateStatusError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.InvalidIDFormatError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.AppointmentNotFoundError) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		if errors.Is(err, model.InvalidStatusError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.DoneStatusTransitionError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.AppointmentResponse{
 		Id:          appointment.ID,

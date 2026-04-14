@@ -1,4 +1,4 @@
-package repository
+package usecase
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/model"
 )
 
-type AppointmentRepositoryInterface interface {
+type AppointmentUsecaseInterface interface {
 	CreateAppointment(ctx context.Context, appointment *model.Appointment) error
 	GetAppointment(ctx context.Context, id string) (*model.Appointment, error)
 	ListAppointments(ctx context.Context) ([]*model.Appointment, error)
-	UpdateAppointmentStatus(ctx context.Context, id string, appointment_status string) (*model.Appointment, error)
+	UpdateAppointmentStatus(ctx context.Context, id string, status string) (*model.Appointment, error)
 }

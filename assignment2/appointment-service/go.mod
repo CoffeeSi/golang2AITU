@@ -4,7 +4,10 @@ go 1.26.1
 
 replace github.com/CoffeeSi/golang2AITU/assignment2/doctor-service => ../doctor-service
 
-require gorm.io/driver/postgres v1.6.0
+require (
+	github.com/google/uuid v1.6.0
+	gorm.io/driver/postgres v1.6.0
+)
 
 require (
 	github.com/CoffeeSi/golang2AITU/assignment2/doctor-service v0.0.0

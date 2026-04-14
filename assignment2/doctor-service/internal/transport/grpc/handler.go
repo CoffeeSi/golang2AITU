@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/internal/usecase"
@@ -31,7 +32,13 @@ func (h *DoctorHandler) CreateDoctor(ctx context.Context, request *pb.CreateDoct
 
 	err := h.uc.CreateDoctor(ctx, &newDoctor)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, model.InvalidCreateArgumentError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.DoctorAlreadyExistsError) {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.DoctorResponse{
 		Id:             newDoctor.ID,
@@ -44,9 +51,10 @@ func (h *DoctorHandler) CreateDoctor(ctx context.Context, request *pb.CreateDoct
 func (h *DoctorHandler) GetDoctor(ctx context.Context, request *pb.GetDoctorRequest) (*pb.DoctorResponse, error) {
 	doctor, err := h.uc.GetDoctor(ctx, request)
 	if err != nil {
-		return nil, err
-	} else if doctor == nil {
-		return nil, status.Error(codes.NotFound, "Doctor not found")
+		if errors.Is(err, model.DoctorNotFoundError) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.DoctorResponse{
 		Id:             doctor.ID,
@@ -59,7 +67,7 @@ func (h *DoctorHandler) GetDoctor(ctx context.Context, request *pb.GetDoctorRequ
 func (h *DoctorHandler) ListDoctors(ctx context.Context, request *pb.ListDoctorsRequest) (*pb.ListDoctorsResponse, error) {
 	doctors, err := h.uc.ListDoctors(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	var doctorResponses []*pb.DoctorResponse
 	for _, doctor := range doctors {
