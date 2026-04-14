@@ -14,10 +14,10 @@ import (
 
 type DoctorHandler struct {
 	pb.UnimplementedDoctorServiceServer
-	uc *usecase.DoctorUsecase
+	uc usecase.DoctorUsecaseInterface
 }
 
-func RegisterDoctorHandlers(s *grpc.Server, uc *usecase.DoctorUsecase) *DoctorHandler {
+func RegisterDoctorHandlers(s *grpc.Server, uc usecase.DoctorUsecaseInterface) *DoctorHandler {
 	handler := &DoctorHandler{uc: uc}
 	pb.RegisterDoctorServiceServer(s, handler)
 	return handler

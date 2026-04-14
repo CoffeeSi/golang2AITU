@@ -18,7 +18,7 @@ type AppointmentHandler struct {
 	uc usecase.AppointmentUsecaseInterface
 }
 
-func RegisterAppointmentHandlers(s *grpc.Server, uc *usecase.AppointmentUsecase) *AppointmentHandler {
+func RegisterAppointmentHandlers(s *grpc.Server, uc usecase.AppointmentUsecaseInterface) *AppointmentHandler {
 	handler := &AppointmentHandler{uc: uc}
 	pb.RegisterAppointmentServiceServer(s, handler)
 	return handler
@@ -65,6 +65,9 @@ func (h *AppointmentHandler) GetAppointment(ctx context.Context, request *pb.Get
 		if errors.Is(err, model.InvalidArgumentGetError) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if errors.Is(err, model.InvalidIDFormatError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.AppointmentResponse{
@@ -81,7 +84,7 @@ func (h *AppointmentHandler) GetAppointment(ctx context.Context, request *pb.Get
 func (h *AppointmentHandler) ListAppointments(ctx context.Context, request *pb.ListAppointmentsRequest) (*pb.ListAppointmentsResponse, error) {
 	appointments, err := h.uc.ListAppointments(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	var pbAppointments []*pb.AppointmentResponse
 	for _, appointment := range appointments {

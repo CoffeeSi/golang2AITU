@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/internal/model"
 	"gorm.io/gorm"
@@ -39,7 +40,7 @@ func (r DoctorRepository) ListDoctors(ctx context.Context) ([]*model.Doctor, err
 func (r DoctorRepository) GetDoctorByEmail(ctx context.Context, email string) (*model.Doctor, error) {
 	var doctor model.Doctor
 	if err := r.db.WithContext(ctx).First(&doctor, "email = ?", email).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, model.DoctorNotFoundError
 		}
 		return nil, err

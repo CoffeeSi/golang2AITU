@@ -17,8 +17,8 @@ type DoctorClient struct {
 
 const defaultDoctorExistsTimeout = 2 * time.Second
 
-func NewDoctorClient(grpcConn *grpc.ClientConn) DoctorClient {
-	return DoctorClient{
+func NewDoctorClient(grpcConn *grpc.ClientConn) *DoctorClient {
+	return &DoctorClient{
 		pbDoctorClient: pb_doctor.NewDoctorServiceClient(grpcConn),
 	}
 }

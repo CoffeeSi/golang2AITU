@@ -2,8 +2,6 @@ module github.com/CoffeeSi/golang2AITU/assignment2/appointment-service
 
 go 1.26.1
 
-replace github.com/CoffeeSi/golang2AITU/assignment2/doctor-service => ../doctor-service
-
 require (
 	github.com/CoffeeSi/golang2AITU/assignment2/proto v0.0.0-20260414174404-42bc5a95626c
 	github.com/google/uuid v1.6.0

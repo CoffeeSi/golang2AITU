@@ -5,7 +5,6 @@ import (
 	"log"
 	"slices"
 
-	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/client"
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/repository"
 	"github.com/google/uuid"
@@ -13,10 +12,10 @@ import (
 
 type AppointmentUsecase struct {
 	repo         repository.AppointmentRepositoryInterface
-	doctorClient client.DoctorClient
+	doctorClient DoctorClientInterface
 }
 
-func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, doctorClient client.DoctorClient) AppointmentUsecase {
+func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, doctorClient DoctorClientInterface) AppointmentUsecase {
 	return AppointmentUsecase{
 		repo:         repo,
 		doctorClient: doctorClient,
