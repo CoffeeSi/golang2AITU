@@ -49,8 +49,12 @@ func (h *DoctorHandler) CreateDoctor(ctx context.Context, request *pb.CreateDoct
 }
 
 func (h *DoctorHandler) GetDoctor(ctx context.Context, request *pb.GetDoctorRequest) (*pb.DoctorResponse, error) {
-	doctor, err := h.uc.GetDoctor(ctx, request)
+	id := request.Id
+	doctor, err := h.uc.GetDoctor(ctx, id)
 	if err != nil {
+		if errors.Is(err, model.InvalidGetArgumentError) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		if errors.Is(err, model.DoctorNotFoundError) {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}

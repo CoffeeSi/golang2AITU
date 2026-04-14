@@ -5,12 +5,12 @@ go 1.26.1
 replace github.com/CoffeeSi/golang2AITU/assignment2/doctor-service => ../doctor-service
 
 require (
+	github.com/CoffeeSi/golang2AITU/assignment2/proto v0.0.0-20260414174404-42bc5a95626c
 	github.com/google/uuid v1.6.0
 	gorm.io/driver/postgres v1.6.0
 )
 
 require (
-	github.com/CoffeeSi/golang2AITU/assignment2/doctor-service v0.0.0
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d // indirect

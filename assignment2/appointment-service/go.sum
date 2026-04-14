@@ -1,3 +1,5 @@
+github.com/CoffeeSi/golang2AITU/assignment2/proto v0.0.0-20260414174404-42bc5a95626c h1:SHvjHoXXda1E4Pa9uad+77yAQ4JhUOeJRU8KEjzJUZw=
+github.com/CoffeeSi/golang2AITU/assignment2/proto v0.0.0-20260414174404-42bc5a95626c/go.mod h1:HftRGMmeB/r6/A4ugUir6RG5NOBtAHWKbEmb4ePNEj8=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

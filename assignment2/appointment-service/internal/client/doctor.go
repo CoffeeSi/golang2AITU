@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/internal/model"
-	pb_doctor "github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/proto"
+	pb_doctor "github.com/CoffeeSi/golang2AITU/assignment2/proto/doctor-service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

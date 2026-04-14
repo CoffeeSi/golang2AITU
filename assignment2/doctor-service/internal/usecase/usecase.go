@@ -5,7 +5,6 @@ import (
 
 	"github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/internal/repository"
-	pb "github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/proto"
 )
 
 type DoctorUsecase struct {
@@ -26,11 +25,11 @@ func (uc *DoctorUsecase) CreateDoctor(ctx context.Context, doctor *model.Doctor)
 	return uc.repo.CreateDoctor(ctx, doctor)
 }
 
-func (uc *DoctorUsecase) GetDoctor(ctx context.Context, request *pb.GetDoctorRequest) (*model.Doctor, error) {
-	if request.Id == "" {
+func (uc *DoctorUsecase) GetDoctor(ctx context.Context, id string) (*model.Doctor, error) {
+	if id == "" {
 		return nil, model.InvalidGetArgumentError
 	}
-	return uc.repo.GetDoctorByID(ctx, request.Id)
+	return uc.repo.GetDoctorByID(ctx, id)
 }
 
 func (uc *DoctorUsecase) ListDoctors(ctx context.Context) ([]*model.Doctor, error) {
