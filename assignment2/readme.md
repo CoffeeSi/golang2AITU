@@ -172,7 +172,7 @@ Postman response example:
 - Proto request: GetDoctorRequest { id }
 - Proto response: DoctorResponse
 - Business rule: id must be provided; missing doctor returns not found.
-- Postman method: doctor_service.proto.DoctorService/GetDoctor
+- Postman method: doctor_service.DoctorService/GetDoctor
 
 Postman message:
 
@@ -187,7 +187,7 @@ Postman message:
 - Proto request: ListDoctorsRequest {}
 - Proto response: ListDoctorsResponse { repeated DoctorResponse doctors }
 - Business rule: returns all known doctors.
-- Postman method: doctor_service.proto.DoctorService/ListDoctors
+- Postman method: doctor_service.DoctorService/ListDoctors
 
 Postman message:
 
@@ -219,7 +219,7 @@ Postman response example:
 - Business rules:
 	- title and doctor_id are required.
 	- doctor_id must refer to an existing doctor (checked via doctor-service call).
-- Postman method: appointment_service.proto.AppointmentService/CreateAppointment
+- Postman method: appointment_service.AppointmentService/CreateAppointment
 
 Postman message:
 
@@ -253,7 +253,7 @@ Postman response example:
 	- id is required.
 	- id must be a valid UUID.
 	- returns not found when appointment does not exist.
-- Postman method: appointment_service.proto.AppointmentService/GetAppointment
+- Postman method: appointment_service.AppointmentService/GetAppointment
 
 Postman message:
 
@@ -268,7 +268,7 @@ Postman message:
 - Proto request: ListAppointmentsRequest {}
 - Proto response: ListAppointmentsResponse { repeated AppointmentResponse appointments }
 - Business rule: returns all appointments.
-- Postman method: appointment_service.proto.AppointmentService/ListAppointments
+- Postman method: appointment_service.AppointmentService/ListAppointments
 
 Postman message:
 
@@ -285,7 +285,7 @@ Postman message:
 	- id must be a valid UUID.
 	- status must be one of allowed status values.
 	- invalid transition from done to disallowed states is rejected.
-- Postman method: appointment_service.proto.AppointmentService/UpdateAppointmentStatus
+- Postman method: appointment_service.AppointmentService/UpdateAppointmentStatus
 
 Postman message:
 
@@ -312,18 +312,83 @@ When creating an appointment, appointment-service calls doctor-service:
 
 This keeps external errors clear while preserving internal dependency boundaries.
 
-## 10) Failure Scenario: Doctor Service Unavailable
+## 10) Architecture Diagram and Failure Scenario
 
-If doctor-service is down, unreachable, or failing unexpectedly during appointment creation:
+### System Architecture
 
-- appointment-service classifies it as dependency failure.
-- internal log entry is written for diagnostics.
-- client receives gRPC status code Unavailable.
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                             Healthcare Scheduling System                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              Client (Postman)                           │
+│                                                                         │
+│  gRPC Requests:                                                         │
+│  - DoctorService/CreateDoctor (localhost:8080)                         │
+│  - DoctorService/GetDoctor (localhost:8080)                            │
+│  - DoctorService/ListDoctors (localhost:8080)                          │
+│  - AppointmentService/CreateAppointment (localhost:8081)               │
+│  - AppointmentService/GetAppointment (localhost:8081)                  │
+│  - AppointmentService/ListAppointments (localhost:8081)                │
+│  - AppointmentService/UpdateAppointmentStatus (localhost:8081)         │
+└─────────────────────────────────────────────────────────────────────────┘
+         │                                    │
+         │ gRPC                               │ gRPC
+         ▼                                    ▼
+┌──────────────────────────────┐  ┌──────────────────────────────┐
+│     Doctor Service           │  │   Appointment Service        │
+│     :8080                    │  │     :8081                    │
+├──────────────────────────────┤  ├──────────────────────────────┤
+│  - CreateDoctor              │  │  - CreateAppointment         │
+│  - GetDoctor                 │  │  - GetAppointment            │
+│  - ListDoctors               │  │  - ListAppointments          │
+│                              │  │  - UpdateAppointmentStatus   │
+└──────────────────────────────┘  └──────────────────────────────┘
+         │                                    │
+         │ gRPC Call                          │
+         │ DoctorService/GetDoctor            │
+         │◄─────────────────────────────────  │
+         │ Returns Doctor or NotFound         │
+         ├──────────────────────────────────► │
+         │                                    │
+         │ PostgreSQL                         │ PostgreSQL
+         ▼                                    ▼
+┌──────────────────────────────┐  ┌──────────────────────────────┐
+│    Doctor Database           │  │  Appointment Database        │
+│  (doctor_service.doctor)     │  │(appointment_service.appt)    │
+│                              │  │                              │
+│  - id (UUID)                 │  │  - id (UUID)                 │
+│  - full_name                 │  │  - title                     │
+│  - specialization            │  │  - description               │
+│  - email (unique)            │  │  - doctor_id (FK)            │
+│                              │  │  - status                    │
+│                              │  │  - created_at                │
+│                              │  │  - updated_at                │
+└──────────────────────────────┘  └──────────────────────────────┘
+```
+
+
+
+### Failure Scenario Flow: Doctor Service Unavailable
+
+1. Client sends CreateAppointment request to appointment-service (:8081).
+2. appointment-service usecase attempts to call doctor-service (:8080) to verify doctor existence.
+3. doctor-service (:8080) is unavailable → gRPC connection error.
+4. appointment-service classifies it as dependency failure (ServiceUnavailableError).
+5. internal log entry is written: `[ERROR] doctor service dependency failure: doctor_id=... err=...`
+6. client receives gRPC status code **Unavailable** with message "doctor service is temporarily unavailable".
 
 Why Unavailable is correct:
 
 - The request itself may be valid.
 - Failure is temporary and infrastructure/dependency related.
+- Retrying may succeed once doctor-service recovers.
+
+Contrast with FailedPrecondition:
+
+- If doctor-service **returns** NotFound → FailedPrecondition, not Unavailable
+- If doctor-service is **down** → Unavailable, not FailedPrecondition
 
 
 ## 11) REST vs gRPC Trade-Offs

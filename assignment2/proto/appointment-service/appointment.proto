@@ -1,7 +1,7 @@
 syntax = "proto3";
-package appointment_service.proto;
+package appointment_service;
 
-option go_package = "github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/proto;proto";
+option go_package = "github.com/CoffeeSi/golang2AITU/assignment2/appointment-service/proto;appointmentpb";
 
 // AppointmentService provides RPC methods for managing appointments
 service AppointmentService {

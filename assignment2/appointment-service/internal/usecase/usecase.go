@@ -61,6 +61,12 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(ctx context.Context, id st
 	if err != nil {
 		return nil, err
 	}
+	if err := uc.doctorClient.DoctorExists(ctx, appointment.DoctorID); err != nil {
+		if err == model.ServiceUnavailableError {
+			log.Printf("[ERROR] doctor service dependency failure: doctor_id=%s err=%v", appointment.DoctorID, err)
+		}
+		return nil, err
+	}
 
 	if !slices.Contains(model.Statuses, model.Status(status)) {
 		return nil, model.InvalidStatusError

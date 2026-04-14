@@ -23,6 +23,9 @@ func (r DoctorRepository) CreateDoctor(ctx context.Context, doctor *model.Doctor
 func (r DoctorRepository) GetDoctorByID(ctx context.Context, id string) (*model.Doctor, error) {
 	var doctor model.Doctor
 	if err := r.db.WithContext(ctx).First(&doctor, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.DoctorNotFoundError
+		}
 		return nil, err
 	}
 	return &doctor, nil

@@ -1,6 +1,6 @@
 syntax = "proto3";
-package doctor_service.proto;
-option go_package = "github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/proto;proto";
+package proto;
+option go_package = "github.com/CoffeeSi/golang2AITU/assignment2/doctor-service/proto;doctorpb";
 
 // DoctorService provides RPC methods for managing doctor information
 service DoctorService {
