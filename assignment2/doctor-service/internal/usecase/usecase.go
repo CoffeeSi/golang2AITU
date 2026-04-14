@@ -9,10 +9,10 @@ import (
 )
 
 type DoctorUsecase struct {
-	repo repository.DoctorRepository
+	repo repository.DoctorRepositoryInterface
 }
 
-func NewDoctorUsecase(repo repository.DoctorRepository) DoctorUsecase {
+func NewDoctorUsecase(repo repository.DoctorRepositoryInterface) DoctorUsecase {
 	return DoctorUsecase{repo: repo}
 }
 
@@ -21,7 +21,7 @@ func (uc *DoctorUsecase) CreateDoctor(ctx context.Context, doctor *model.Doctor)
 		return model.InvalidCreateArgumentError
 	}
 	if _, err := uc.repo.GetDoctorByEmail(ctx, doctor.Email); err == nil {
-		return err
+		return model.DoctorAlreadyExistsError
 	}
 	return uc.repo.CreateDoctor(ctx, doctor)
 }

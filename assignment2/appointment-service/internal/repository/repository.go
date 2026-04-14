@@ -42,12 +42,12 @@ func (r AppointmentRepository) ListAppointments(ctx context.Context) ([]*model.A
 
 func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id string, appointment_status string) (*model.Appointment, error) {
 	var appointment model.Appointment
-	err := r.db.WithContext(ctx).Model(&appointment).Where("id = ?", id).Update("status", appointment_status).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, model.AppointmentNotFoundError
-		}
-		return nil, err
+	res := r.db.WithContext(ctx).Model(&appointment).Where("id = ?", id).Update("status", appointment_status).First(&appointment)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, model.AppointmentNotFoundError
 	}
 	return &appointment, nil
 }

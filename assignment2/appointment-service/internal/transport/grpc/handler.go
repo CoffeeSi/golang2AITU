@@ -15,7 +15,7 @@ import (
 
 type AppointmentHandler struct {
 	pb.UnimplementedAppointmentServiceServer
-	uc *usecase.AppointmentUsecase
+	uc usecase.AppointmentUsecaseInterface
 }
 
 func RegisterAppointmentHandlers(s *grpc.Server, uc *usecase.AppointmentUsecase) *AppointmentHandler {

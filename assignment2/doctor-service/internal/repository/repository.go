@@ -15,11 +15,11 @@ func NewDoctorRepository(db *gorm.DB) DoctorRepository {
 	return DoctorRepository{db: db}
 }
 
-func (r *DoctorRepository) CreateDoctor(ctx context.Context, doctor *model.Doctor) error {
+func (r DoctorRepository) CreateDoctor(ctx context.Context, doctor *model.Doctor) error {
 	return r.db.WithContext(ctx).Create(doctor).Error
 }
 
-func (r *DoctorRepository) GetDoctorByID(ctx context.Context, id string) (*model.Doctor, error) {
+func (r DoctorRepository) GetDoctorByID(ctx context.Context, id string) (*model.Doctor, error) {
 	var doctor model.Doctor
 	if err := r.db.WithContext(ctx).First(&doctor, "id = ?", id).Error; err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func (r *DoctorRepository) GetDoctorByID(ctx context.Context, id string) (*model
 	return &doctor, nil
 }
 
-func (r *DoctorRepository) ListDoctors(ctx context.Context) ([]*model.Doctor, error) {
+func (r DoctorRepository) ListDoctors(ctx context.Context) ([]*model.Doctor, error) {
 	var doctors []*model.Doctor
 	if err := r.db.WithContext(ctx).Find(&doctors).Error; err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (r *DoctorRepository) ListDoctors(ctx context.Context) ([]*model.Doctor, er
 	return doctors, nil
 }
 
-func (r *DoctorRepository) GetDoctorByEmail(ctx context.Context, email string) (*model.Doctor, error) {
+func (r DoctorRepository) GetDoctorByEmail(ctx context.Context, email string) (*model.Doctor, error) {
 	var doctor model.Doctor
 	if err := r.db.WithContext(ctx).First(&doctor, "email = ?", email).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

@@ -16,8 +16,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func Run(port string) error {
+func Run() error {
 	godotenv.Load()
+
+	// Port configuration
+	port := fmt.Sprintf(":%s", os.Getenv("PORT"))
+	if port == ":" {
+		port = ":8080"
+	}
+
 	// Database url configuration
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s TimeZone=%s",
 		os.Getenv("DB_HOST"),

@@ -67,7 +67,7 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(ctx context.Context, id st
 		return nil, model.InvalidStatusError
 	}
 
-	if appointment.Status == "done" && status != "new" {
+	if appointment.Status == "done" && status == "new" {
 		return nil, model.DoneStatusTransitionError
 	}
 	return uc.repo.UpdateAppointmentStatus(ctx, id, status)
