@@ -1,0 +1,29 @@
+syntax = "proto3";
+package proto;
+option go_package = "github.com/CoffeeSi/golang2AITU/assignment3/doctor-service/proto;doctorpb";
+
+// DoctorService provides RPC methods for managing doctor information
+service DoctorService {
+    // CreateDoctor creates a new doctor record
+    rpc CreateDoctor(CreateDoctorRequest) returns (DoctorResponse);
+    // GetDoctor retrieves a doctor by ID
+    rpc GetDoctor(GetDoctorRequest) returns (DoctorResponse);
+    // ListDoctors retrieves all doctors
+    rpc ListDoctors(ListDoctorsRequest) returns (ListDoctorsResponse);
+}
+
+message CreateDoctorRequest {
+    string full_name = 1;
+    string specialization = 2;
+    string email = 3;
+}
+message GetDoctorRequest { string id = 1; }
+message ListDoctorsRequest {}
+message DoctorResponse {
+    string id = 1;
+    string full_name = 2;
+    string specialization = 3;
+    string email = 4;
+}
+
+message ListDoctorsResponse { repeated DoctorResponse doctors = 1; }

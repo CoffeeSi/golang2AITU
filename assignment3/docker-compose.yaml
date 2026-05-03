@@ -1,0 +1,65 @@
+services:
+  postgres-doctor:
+    image: postgres:17-alpine
+    container_name: postgres-doctor
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: doctor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-doctor-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-appointment:
+    image: postgres:17-alpine
+    container_name: postgres-appointment
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: appointments
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-appointment-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  doctor-service:
+    build: ./doctor-service
+    container_name: doctor-service
+    depends_on:
+      postgres-doctor:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: "postgres://postgres:admin@postgres-doctor:5432/doctor?sslmode=disable&timezone=Asia/Almaty"
+      PORT: "8080"
+
+  appointment-service:
+    build: ./appointment-service
+    container_name: appointment-service
+    depends_on:
+      postgres-appointment:
+        condition: service_healthy
+      doctor-service:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL: "postgres://postgres:admin@postgres-appointment:5432/appointments?sslmode=disable&timezone=Asia/Almaty"
+      DOCTOR_SERVICE_URL: "doctor-service:8080"
+      PORT: "8081"
+
+volumes:
+  postgres-doctor-data:
+  postgres-appointment-data:
