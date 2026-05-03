@@ -2,11 +2,15 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/client"
+	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/event"
 	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/repository"
 	grpc_handler "github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/transport/grpc"
 	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/usecase"
@@ -35,20 +39,59 @@ func Run() error {
 		doctorServiceURL = "localhost:8080"
 	}
 
+	amqpURL := os.Getenv("AMQP_URL")
+	if amqpURL == "" {
+		amqpURL = "amqp://guest:guest@localhost:5672/"
+	}
+
+	var publisher event.AppointmentEventPublisherInterface = event.NoopPublisher{}
+	closePublisher := func() error { return nil }
+
+	var brokerPublisher *event.EventPublisher
+	var err error
+	backoff := 250 * time.Millisecond
+	for attempt := 1; attempt <= 5; attempt++ {
+		brokerPublisher, err = event.NewPublisher(amqpURL)
+		if err == nil {
+			break
+		}
+		if attempt < 5 {
+			log.Printf("[WARNING] broker unavailable, retrying publish setup (attempt %d/5): %v", attempt, err)
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+	}
+	if err != nil {
+		log.Printf("[WARNING] broker unavailable, events disabled: %v", err)
+	} else {
+		publisher = brokerPublisher
+		closePublisher = brokerPublisher.Close
+	}
+	defer func() {
+		if err := closePublisher(); err != nil {
+			log.Printf("[WARNING] failed to close event publisher: %v", err)
+		}
+	}()
+
 	// Database url configuration
-	dsn := os.Getenv("DB_URL")
+	dsn := os.Getenv("DATABASE_URL")
 
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse database config: %w", err)
 	}
 
 	// Database connection
 	db, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer db.Close()
+
+	// Verify database is accessible
+	if err := db.Ping(context.Background()); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
 
 	// Database migration
 	migrator, err := migrate.New(
@@ -56,18 +99,18 @@ func Run() error {
 		dsn,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create migrator: %w", err)
 	}
 
 	err = migrator.Up()
-	if err != nil {
-		fmt.Printf("Migration: %v\n", err)
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
 	// gRPC client
 	conn, err := grpc.NewClient(doctorServiceURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create gRPC client: %w", err)
 	}
 
 	doctorClient := client.NewDoctorClient(conn)
@@ -76,11 +119,11 @@ func Run() error {
 	repo := repository.NewAppointmentRepository(db)
 
 	// Usecase initialization
-	uc := usecase.NewAppointmentUsecase(repo, doctorClient)
+	uc := usecase.NewAppointmentUsecase(repo, doctorClient, publisher)
 
 	server, err := net.Listen("tcp", port)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to listen on port %s: %w", port, err)
 	}
 
 	// gRPC server setup

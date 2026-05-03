@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS doctors (
+CREATE TABLE doctors (
     id TEXT PRIMARY KEY,
     full_name TEXT NOT NULL,
     specialization TEXT NOT NULL DEFAULT '',

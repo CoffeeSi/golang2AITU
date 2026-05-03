@@ -1,12 +1,13 @@
 module github.com/CoffeeSi/golang2AITU/assignment3/doctor-service
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/joho/godotenv v1.5.1
+	github.com/rabbitmq/amqp091-go v1.11.0
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 )

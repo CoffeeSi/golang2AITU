@@ -1,4 +1,16 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
   postgres-doctor:
     image: postgres:17-alpine
     container_name: postgres-doctor
@@ -39,11 +51,14 @@ services:
     depends_on:
       postgres-doctor:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      DB_URL: "postgres://postgres:admin@postgres-doctor:5432/doctor?sslmode=disable&timezone=Asia/Almaty"
+      DATABASE_URL: "postgres://postgres:admin@postgres-doctor:5432/doctor?sslmode=disable&timezone=Asia/Almaty"
       PORT: "8080"
+      AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
 
   appointment-service:
     build: ./appointment-service
@@ -51,14 +66,26 @@ services:
     depends_on:
       postgres-appointment:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       doctor-service:
         condition: service_started
     ports:
       - "8081:8081"
     environment:
-      DB_URL: "postgres://postgres:admin@postgres-appointment:5432/appointments?sslmode=disable&timezone=Asia/Almaty"
+      DATABASE_URL: "postgres://postgres:admin@postgres-appointment:5432/appointments?sslmode=disable&timezone=Asia/Almaty"
       DOCTOR_SERVICE_URL: "doctor-service:8080"
       PORT: "8081"
+      AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
 
 volumes:
   postgres-doctor-data:

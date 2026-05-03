@@ -85,7 +85,13 @@ func (r AppointmentRepository) ListAppointments(ctx context.Context) ([]*model.A
 }
 
 func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id string, status string) (*model.Appointment, error) {
-	command_tag, err := r.db.Exec(ctx, "UPDATE appointments SET status = $2, updated_at = NOW() WHERE id = $1", id, status)
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	command_tag, err := tx.Exec(ctx, "UPDATE appointments SET status = $2, updated_at = NOW() WHERE id = $1", id, status)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +100,7 @@ func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id s
 	}
 
 	var appointment model.Appointment
-	err = r.db.QueryRow(ctx, "SELECT id, title, description, doctor_id, status, created_at, updated_at FROM appointments WHERE id = $1", id).Scan(
+	err = tx.QueryRow(ctx, "SELECT id, title, description, doctor_id, status, created_at, updated_at FROM appointments WHERE id = $1", id).Scan(
 		&appointment.ID,
 		&appointment.Title,
 		&appointment.Description,
@@ -104,6 +110,10 @@ func (r AppointmentRepository) UpdateAppointmentStatus(ctx context.Context, id s
 		&appointment.UpdatedAt,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 

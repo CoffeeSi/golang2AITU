@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/event"
 	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment3/appointment-service/internal/repository"
 	"github.com/google/uuid"
@@ -14,12 +15,14 @@ import (
 type AppointmentUsecase struct {
 	repo         repository.AppointmentRepositoryInterface
 	doctorClient DoctorClientInterface
+	publisher    event.AppointmentEventPublisherInterface
 }
 
-func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, doctorClient DoctorClientInterface) AppointmentUsecase {
+func NewAppointmentUsecase(repo repository.AppointmentRepositoryInterface, doctorClient DoctorClientInterface, publisher event.AppointmentEventPublisherInterface) AppointmentUsecase {
 	return AppointmentUsecase{
 		repo:         repo,
 		doctorClient: doctorClient,
+		publisher:    publisher,
 	}
 }
 
@@ -37,7 +40,25 @@ func (uc *AppointmentUsecase) CreateAppointment(ctx context.Context, appointment
 	appointment.Status = model.StatusNew
 	appointment.CreatedAt = time.Now()
 	appointment.UpdatedAt = time.Now()
-	return uc.repo.CreateAppointment(ctx, appointment)
+	err := uc.repo.CreateAppointment(ctx, appointment)
+	if err != nil {
+		return err
+	}
+
+	event_payload := event.AppointmentCreatedEvent{
+		EventType:  event.AppointmentCreatedEventType,
+		OccurredAt: time.Now().Format(time.RFC3339),
+		ID:         appointment.ID,
+		Title:      appointment.Title,
+		DoctorID:   appointment.DoctorID,
+		Status:     string(appointment.Status),
+	}
+
+	err = uc.publisher.Publish(ctx, event.AppointmentCreatedEventType, event_payload)
+	if err != nil {
+		log.Printf("[ERROR] failed to publish appointment created event: %v", err)
+	}
+	return nil
 }
 
 func (uc *AppointmentUsecase) GetAppointment(ctx context.Context, id string) (*model.Appointment, error) {
@@ -80,5 +101,22 @@ func (uc *AppointmentUsecase) UpdateAppointmentStatus(ctx context.Context, id st
 	if appointment.Status == model.StatusDone && status == string(model.StatusDone) {
 		return nil, model.DoneStatusTransitionError
 	}
-	return uc.repo.UpdateAppointmentStatus(ctx, id, status)
+
+	updated_appointment, err := uc.repo.UpdateAppointmentStatus(ctx, id, status)
+	if err != nil {
+		return nil, err
+	}
+
+	event_payload := event.AppointmentStatusUpdatedEvent{
+		EventType:  event.AppointmentStatusUpdatedEventType,
+		OccurredAt: time.Now().Format(time.RFC3339),
+		ID:         id,
+		OldStatus:  string(appointment.Status),
+		NewStatus:  status,
+	}
+	err = uc.publisher.Publish(ctx, event.AppointmentStatusUpdatedEventType, event_payload)
+	if err != nil {
+		log.Printf("[ERROR] failed to publish appointment status updated event: %v", err)
+	}
+	return updated_appointment, nil
 }

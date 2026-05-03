@@ -1,10 +1,13 @@
 module github.com/CoffeeSi/golang2AITU/assignment3/appointment-service
 
-go 1.26.1
+go 1.26.2
 
 require github.com/google/uuid v1.6.0
 
-require github.com/golang-migrate/migrate/v4 v4.19.1
+require (
+	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/rabbitmq/amqp091-go v1.11.0
+)
 
 require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
