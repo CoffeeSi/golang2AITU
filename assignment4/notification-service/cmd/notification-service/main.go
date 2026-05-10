@@ -6,24 +6,44 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/CoffeeSi/golang2AITU/assignment4/notification-service/internal/jobqueue"
 	"github.com/CoffeeSi/golang2AITU/assignment4/notification-service/internal/subscriber"
+	"github.com/redis/go-redis/v9"
 )
 
 const maxStartupAttempts = 5
 
 func main() {
-	brokerURL, err := brokerURLFromEnv()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	brokerURL := brokerURLFromEnv()
+	redisURL := redisURLFromEnv()
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisURL,
+	})
+	defer redisClient.Close()
+
+	gatewayURL := "http://localhost:8080/notify"
+	if url := os.Getenv("GATEWAY_URL"); url != "" {
+		gatewayURL = url + "/notify"
 	}
 
+	workerPoolSize := 3
+	if sizeStr := os.Getenv("WORKER_POOL_SIZE"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
+			workerPoolSize = size
+		}
+	}
+
+	wp := jobqueue.NewWorkerPool(workerPoolSize, redisClient, gatewayURL)
+	wp.Start(context.Background(), workerPoolSize)
+
 	var sub *subscriber.NotificationSubscriber
+	var err error
 	for attempt := 1; attempt <= maxStartupAttempts; attempt++ {
-		sub, err = subscriber.NewSubscriber(brokerURL)
+		sub, err = subscriber.NewSubscriber(brokerURL, redisClient, wp)
 		if err == nil {
 			break
 		}
@@ -52,11 +72,18 @@ func main() {
 	}
 }
 
-func brokerURLFromEnv() (string, error) {
+func brokerURLFromEnv() string {
 	if url := os.Getenv("AMQP_URL"); url != "" {
-		return url, nil
+		return url
 	}
-	return "", fmt.Errorf("AMQP_URL must be set")
+	return "amqp://guest:guest@localhost/"
+}
+
+func redisURLFromEnv() string {
+	if redisAddr := os.Getenv("REDIS_URL"); redisAddr != "" {
+		return redisAddr
+	}
+	return "localhost:6379"
 }
 
 func startupBackoff(attempt int) time.Duration {

@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/model"
@@ -114,4 +115,26 @@ func (c *CacheClient) Update(ctx context.Context, appointment *model.Appointment
 		return model.RedisCacheWriteFailureError
 	}
 	return nil
+}
+
+func (c *CacheClient) Allow(ctx context.Context, ip string, limit int) (bool, error) {
+	key := "rate_limit:" + ip
+	now := time.Now().UnixNano()
+	oneMinuteAgo := now - int64(time.Minute)
+
+	pipe := c.client.Pipeline()
+
+	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", oneMinuteAgo))
+	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: now})
+	pipe.ZCard(ctx, key)
+	pipe.Expire(ctx, key, time.Minute)
+
+	cmds, err := pipe.Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	count, _ := cmds[2].(*redis.IntCmd).Result()
+
+	return int(count) <= limit, nil
 }

@@ -67,10 +67,10 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "50051:50051"
     environment:
       DATABASE_URL: "postgres://postgres:admin@postgres-doctor:5432/doctor?sslmode=disable&timezone=Asia/Almaty"
-      PORT: "8080"
+      GRPC_PORT: "50051"
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
       REDIS_URL: "redis:6379"
       CACHE_TTL_SECONDS: 3600
@@ -88,11 +88,11 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8081:8081"
+      - "50052:50052"
     environment:
       DATABASE_URL: "postgres://postgres:admin@postgres-appointment:5432/appointments?sslmode=disable&timezone=Asia/Almaty"
-      DOCTOR_SERVICE_URL: "doctor-service:8080"
-      PORT: "8081"
+      DOCTOR_SERVICE_URL: "doctor-service:50051"
+      GRPC_PORT: "50052"
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
       REDIS_URL: "redis:6379"
       CACHE_TTL_SECONDS: 3600
@@ -107,6 +107,23 @@ services:
         condition: service_healthy
     environment:
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
+      GATEWAY_URL: "http://mock-gateway:8080"
+      WORKER_POOL_SIZE: "5"
+      REDIS_URL: "redis:6379"
+      CACHE_TTL_SECONDS: 3600
+      
+  mock-gateway:
+    build: ./mock-gateway
+    container_name: mock-gateway
+    depends_on:
+      doctor-service:
+        condition: service_started
+      appointment-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_PORT: "8080"
 
 volumes:
   postgres-doctor-data:

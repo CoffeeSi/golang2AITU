@@ -13,4 +13,5 @@ type CacheClientInterface interface {
 	GetList(ctx context.Context) ([]*model.Doctor, error)
 	Delete(ctx context.Context, id string) error
 	DeleteList(ctx context.Context) error
+	Allow(ctx context.Context, clientIP string, limit int) (bool, error)
 }

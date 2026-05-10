@@ -7,11 +7,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/cache"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/client"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/event"
+	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/middleware"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/repository"
 	grpc_handler "github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/transport/grpc"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/usecase"
@@ -31,7 +33,7 @@ func Run() error {
 
 	doctorServiceURL := os.Getenv("DOCTOR_SERVICE_URL")
 	if doctorServiceURL == "" {
-		doctorServiceURL = "localhost:8080"
+		doctorServiceURL = "localhost:50051"
 	}
 
 	db, dsn, err := initDB()
@@ -66,7 +68,7 @@ func Run() error {
 	repo := repository.NewAppointmentRepository(db)
 	uc := usecase.NewAppointmentUsecase(repo, doctorClient, publisher, cacheClient)
 
-	return startGRPCServer(&uc)
+	return startGRPCServer(&uc, cacheClient)
 }
 
 func initDB() (*pgxpool.Pool, string, error) {
@@ -161,10 +163,15 @@ func initCache() (*cache.CacheClient, error) {
 	return cacheClient, nil
 }
 
-func startGRPCServer(uc *usecase.AppointmentUsecase) error {
-	port := fmt.Sprintf(":%s", os.Getenv("PORT"))
+func startGRPCServer(uc *usecase.AppointmentUsecase, cacheClient *cache.CacheClient) error {
+	port := fmt.Sprintf(":%s", os.Getenv("GRPC_PORT"))
 	if port == ":" {
-		port = ":8080"
+		port = ":50052"
+	}
+
+	limitRPM := 100
+	if val, err := strconv.Atoi(os.Getenv("RATE_LIMIT_RPM")); err == nil {
+		limitRPM = val
 	}
 
 	server, err := net.Listen("tcp", port)
@@ -172,7 +179,9 @@ func startGRPCServer(uc *usecase.AppointmentUsecase) error {
 		return fmt.Errorf("failed to listen on port %s: %w", port, err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.RateLimitInterceptor(cacheClient, limitRPM)),
+	)
 	grpc_handler.RegisterAppointmentHandlers(grpcServer, uc)
 	reflection.Register(grpcServer)
 

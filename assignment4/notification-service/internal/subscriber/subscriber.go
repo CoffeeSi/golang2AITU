@@ -2,13 +2,17 @@ package subscriber
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/CoffeeSi/golang2AITU/assignment4/notification-service/internal/jobqueue"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/redis/go-redis/v9"
 )
 
 const exchangeName = "ap2.events"
@@ -16,6 +20,8 @@ const exchangeName = "ap2.events"
 type NotificationSubscriber struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
+	redis   *redis.Client
+	wp      *jobqueue.WorkerPool
 }
 
 type NotificationRecord struct {
@@ -24,7 +30,7 @@ type NotificationRecord struct {
 	Event   map[string]any `json:"event"`
 }
 
-func NewSubscriber(amqpURL string) (*NotificationSubscriber, error) {
+func NewSubscriber(amqpURL string, redisClient *redis.Client, workerPool *jobqueue.WorkerPool) (*NotificationSubscriber, error) {
 	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
 		return nil, err
@@ -37,6 +43,8 @@ func NewSubscriber(amqpURL string) (*NotificationSubscriber, error) {
 	return &NotificationSubscriber{
 		conn:    conn,
 		channel: channel,
+		redis:   redisClient,
+		wp:      workerPool,
 	}, nil
 }
 
@@ -100,6 +108,13 @@ func (s *NotificationSubscriber) Listen(ctx context.Context) error {
 		return err
 	}
 
+	notifyClose := s.channel.NotifyClose(make(chan *amqp.Error, 1))
+	go func() {
+		if closeErr := <-notifyClose; closeErr != nil {
+			fmt.Fprintf(os.Stderr, "rabbitmq channel closed: code=%d reason=%s server=%t recover=%t\n", closeErr.Code, closeErr.Reason, closeErr.Server, closeErr.Recover)
+		}
+	}()
+
 	consumerTag := "notification-service"
 	msgs, err := s.channel.Consume(
 		q.Name,
@@ -116,26 +131,11 @@ func (s *NotificationSubscriber) Listen(ctx context.Context) error {
 
 	shuttingDown := false
 	for {
-		if shuttingDown {
-			delivery, ok := <-msgs
-			if !ok {
-				return nil
-			}
-			if err := s.handleDelivery(delivery); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to process notification: subject=%s err=%v\n", delivery.RoutingKey, err)
-				if nackErr := delivery.Nack(false, false); nackErr != nil {
-					return nackErr
-				}
-				continue
-			}
-			if err := delivery.Ack(false); err != nil {
-				return err
-			}
-			continue
-		}
-
 		select {
 		case <-ctx.Done():
+			if shuttingDown {
+				continue
+			}
 			shuttingDown = true
 			if err := s.channel.Cancel(consumerTag, false); err != nil {
 				return err
@@ -179,5 +179,47 @@ func (s *NotificationSubscriber) handleDelivery(delivery amqp.Delivery) error {
 	}
 
 	fmt.Fprintln(os.Stdout, string(payload))
+
+	s.HandleAppointmentStatusUpdated(context.Background(), delivery.Body)
 	return nil
+}
+
+func (s *NotificationSubscriber) HandleAppointmentStatusUpdated(ctx context.Context, payload []byte) {
+	var event struct {
+		EventType  string `json:"event_type"`
+		ID         string `json:"id"`
+		DoctorID   string `json:"doctor_id"`
+		OccurredAt string `json:"occurred_at"`
+		NewStatus  string `json:"new_status"`
+	}
+	_ = json.Unmarshal(payload, &event)
+
+	if event.NewStatus != "done" {
+		return
+	}
+
+	raw := event.EventType + event.ID + event.OccurredAt
+	hash := sha256.Sum256([]byte(raw))
+	idKey := hex.EncodeToString(hash[:])
+
+	exists, err := s.redis.Exists(ctx, "job:"+idKey).Result()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to check job existence: %v\n", err)
+		return
+	}
+	if exists > 0 {
+		return
+	}
+
+	job := jobqueue.NotificationJob{
+		IdempotencyKey: idKey,
+		AppointmentID:  event.ID,
+		DoctorID:       event.DoctorID,
+		OccurredAt:     event.OccurredAt,
+		Channel:        "email",
+		Recipient:      "patient@clinic.kz",
+		Message:        fmt.Sprintf("Your appointment %s with doctor %s is complete.", event.ID, event.DoctorID),
+	}
+
+	s.wp.Enqueue(job)
 }

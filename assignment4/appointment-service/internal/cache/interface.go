@@ -14,4 +14,5 @@ type CacheClientInterface interface {
 	Delete(ctx context.Context, id string) error
 	DeleteList(ctx context.Context) error
 	Update(ctx context.Context, appointment *model.Appointment) error
+	Allow(ctx context.Context, key string, limit int) (bool, error)
 }

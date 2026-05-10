@@ -7,10 +7,12 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/cache"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/event"
+	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/middleware"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/repository"
 	grpc_handler "github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/transport/grpc"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/usecase"
@@ -52,7 +54,7 @@ func Run() error {
 	repo := repository.NewDoctorRepository(db)
 	uc := usecase.NewDoctorUsecase(repo, publisher, cacheClient)
 
-	return startGRPCServer(&uc)
+	return startGRPCServer(&uc, cacheClient)
 }
 
 func initDB() (*pgxpool.Pool, string, error) {
@@ -147,10 +149,15 @@ func initCache() (*cache.CacheClient, error) {
 	return cacheClient, nil
 }
 
-func startGRPCServer(uc *usecase.DoctorUsecase) error {
-	port := fmt.Sprintf(":%s", os.Getenv("PORT"))
+func startGRPCServer(uc *usecase.DoctorUsecase, cacheClient cache.CacheClientInterface) error {
+	port := fmt.Sprintf(":%s", os.Getenv("GRPC_PORT"))
 	if port == ":" {
-		port = ":8080"
+		port = ":50051"
+	}
+
+	limitRPM := 100
+	if val, err := strconv.Atoi(os.Getenv("RATE_LIMIT_RPM")); err == nil {
+		limitRPM = val
 	}
 
 	server, err := net.Listen("tcp", port)
@@ -158,7 +165,9 @@ func startGRPCServer(uc *usecase.DoctorUsecase) error {
 		return fmt.Errorf("failed to listen on port %s: %w", port, err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.RateLimitInterceptor(cacheClient, limitRPM)),
+	)
 	grpc_handler.RegisterDoctorHandlers(grpcServer, uc)
 	reflection.Register(grpcServer)
 
