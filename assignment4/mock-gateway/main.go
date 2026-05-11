@@ -53,7 +53,7 @@ func notifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	if rand.Float32() < 0.2 {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusServiceUnavailable)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "error",
 		})

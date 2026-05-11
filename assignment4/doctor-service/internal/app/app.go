@@ -129,7 +129,12 @@ func initBrokerPublisher() (event.DoctorEventPublisherInterface, func() error) {
 func initCache() (*cache.CacheClient, error) {
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		redisURL = "localhost:6379"
+		redisURL = "redis://localhost:6379"
+	}
+
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse REDIS_URL: %w", err)
 	}
 
 	cacheTTLSeconds := os.Getenv("CACHE_TTL_SECONDS")
@@ -141,15 +146,22 @@ func initCache() (*cache.CacheClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CACHE_TTL_SECONDS: %w", err)
 	}
-	cacheClient := cache.NewCacheClient(redis.NewClient(&redis.Options{
-		Addr:     redisURL,
-		Password: "",
-		DB:       0,
-	}), cacheTTL)
+
+	redisClient := redis.NewClient(opt)
+
+	// Check Redis availability with a short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Printf("[WARNING] Redis is unavailable at startup: %v. Services will continue without cache.", err)
+	}
+
+	cacheClient := cache.NewCacheClient(redisClient, cacheTTL)
 	return cacheClient, nil
 }
 
-func startGRPCServer(uc *usecase.DoctorUsecase, cacheClient cache.CacheClientInterface) error {
+func startGRPCServer(uc usecase.DoctorUsecaseInterface, rateLimiter usecase.RateLimiterInterface) error {
 	port := fmt.Sprintf(":%s", os.Getenv("GRPC_PORT"))
 	if port == ":" {
 		port = ":50051"
@@ -166,7 +178,7 @@ func startGRPCServer(uc *usecase.DoctorUsecase, cacheClient cache.CacheClientInt
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(middleware.RateLimitInterceptor(cacheClient, limitRPM)),
+		grpc.UnaryInterceptor(middleware.RateLimitInterceptor(rateLimiter, limitRPM)),
 	)
 	grpc_handler.RegisterDoctorHandlers(grpcServer, uc)
 	reflection.Register(grpcServer)

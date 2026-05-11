@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/model"
@@ -120,4 +121,30 @@ func (c *CacheClient) Allow(ctx context.Context, ip string, limit int) (bool, er
 	count, _ := cmds[2].(*redis.IntCmd).Result()
 
 	return int(count) <= limit, nil
+}
+
+func (c *CacheClient) RetryAfter(ctx context.Context, ip string) (time.Duration, error) {
+	key := "rate_limit:" + ip
+	oldest, err := c.client.ZRange(ctx, key, 0, 0).Result()
+	if err != nil {
+		return 0, err
+	}
+	if len(oldest) == 0 {
+		return time.Minute, nil
+	}
+
+	oldestTs, err := strconv.ParseInt(oldest[0], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	retryAfter := time.Duration(oldestTs + int64(time.Minute) - time.Now().UnixNano())
+	if retryAfter < time.Second {
+		retryAfter = time.Second
+	}
+	if retryAfter > time.Minute {
+		retryAfter = time.Minute
+	}
+
+	return retryAfter, nil
 }

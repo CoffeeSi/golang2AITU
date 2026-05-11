@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -20,10 +21,22 @@ const maxStartupAttempts = 5
 func main() {
 	brokerURL := brokerURLFromEnv()
 	redisURL := redisURLFromEnv()
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisURL,
-	})
+
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse REDIS_URL: %v\n", err)
+		os.Exit(1)
+	}
+
+	redisClient := redis.NewClient(opt)
 	defer redisClient.Close()
+
+	// Check Redis availability with a short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Printf("[WARNING] Redis is unavailable at startup: %v. Notification service will continue without idempotency checks.", err)
+	}
+	cancel()
 
 	gatewayURL := "http://localhost:8080/notify"
 	if url := os.Getenv("GATEWAY_URL"); url != "" {
@@ -37,11 +50,17 @@ func main() {
 		}
 	}
 
-	wp := jobqueue.NewWorkerPool(workerPoolSize, redisClient, gatewayURL)
+	// Use a larger buffer to prevent blocking the RabbitMQ subscriber
+	// Calculate buffer size as 10x the worker pool size, minimum 100
+	bufferSize := workerPoolSize * 10
+	if bufferSize < 100 {
+		bufferSize = 100
+	}
+
+	wp := jobqueue.NewWorkerPool(workerPoolSize, bufferSize, redisClient, gatewayURL)
 	wp.Start(context.Background(), workerPoolSize)
 
 	var sub *subscriber.NotificationSubscriber
-	var err error
 	for attempt := 1; attempt <= maxStartupAttempts; attempt++ {
 		sub, err = subscriber.NewSubscriber(brokerURL, redisClient, wp)
 		if err == nil {
@@ -83,7 +102,7 @@ func redisURLFromEnv() string {
 	if redisAddr := os.Getenv("REDIS_URL"); redisAddr != "" {
 		return redisAddr
 	}
-	return "localhost:6379"
+	return "redis://localhost:6379"
 }
 
 func startupBackoff(attempt int) time.Duration {

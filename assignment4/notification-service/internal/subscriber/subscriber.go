@@ -180,7 +180,9 @@ func (s *NotificationSubscriber) handleDelivery(delivery amqp.Delivery) error {
 
 	fmt.Fprintln(os.Stdout, string(payload))
 
-	s.HandleAppointmentStatusUpdated(context.Background(), delivery.Body)
+	if delivery.RoutingKey == "appointments.status_updated" {
+		s.HandleAppointmentStatusUpdated(context.Background(), delivery.Body)
+	}
 	return nil
 }
 
@@ -204,10 +206,10 @@ func (s *NotificationSubscriber) HandleAppointmentStatusUpdated(ctx context.Cont
 
 	exists, err := s.redis.Exists(ctx, "job:"+idKey).Result()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to check job existence: %v\n", err)
-		return
-	}
-	if exists > 0 {
+		fmt.Fprintf(os.Stderr, "{\"time\":\"%s\",\"level\":\"warn\",\"job_id\":\"%s\",\"status\":\"redis_unavailable\",\"message\":\"Redis unavailable for idempotency check. Processing job with best-effort\",\"error\":\"%v\"}\n", time.Now().Format(time.RFC3339), idKey, err)
+		// Continue with best-effort delivery instead of dropping the job
+	} else if exists > 0 {
+		fmt.Printf("{\"time\":\"%s\",\"level\":\"info\",\"job_id\":\"%s\",\"status\":\"duplicate_dropped\",\"message\":\"Duplicate idempotency key detected and dropped silently\"}\n", time.Now().Format(time.RFC3339), idKey)
 		return
 	}
 

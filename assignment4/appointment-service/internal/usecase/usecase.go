@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/cache"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/event"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment4/appointment-service/internal/repository"
@@ -17,14 +16,14 @@ type AppointmentUsecase struct {
 	repo         repository.AppointmentRepositoryInterface
 	doctorClient DoctorClientInterface
 	publisher    event.AppointmentEventPublisherInterface
-	cache        cache.CacheClientInterface
+	cache        CacheClientInterface
 }
 
 func NewAppointmentUsecase(
 	repo repository.AppointmentRepositoryInterface,
 	doctorClient DoctorClientInterface,
 	publisher event.AppointmentEventPublisherInterface,
-	cache cache.CacheClientInterface,
+	cache CacheClientInterface,
 ) AppointmentUsecase {
 	return AppointmentUsecase{
 		repo:         repo,
@@ -54,9 +53,6 @@ func (uc *AppointmentUsecase) CreateAppointment(ctx context.Context, appointment
 	}
 
 	if err := uc.cache.DeleteList(ctx); err != nil {
-		log.Printf("%s", err.Error())
-	}
-	if err := uc.cache.Set(ctx, appointment); err != nil {
 		log.Printf("%s", err.Error())
 	}
 

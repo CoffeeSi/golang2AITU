@@ -72,7 +72,7 @@ services:
       DATABASE_URL: "postgres://postgres:admin@postgres-doctor:5432/doctor?sslmode=disable&timezone=Asia/Almaty"
       GRPC_PORT: "50051"
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
-      REDIS_URL: "redis:6379"
+      REDIS_URL: "redis://redis:6379"
       CACHE_TTL_SECONDS: 3600
 
   appointment-service:
@@ -94,7 +94,7 @@ services:
       DOCTOR_SERVICE_URL: "doctor-service:50051"
       GRPC_PORT: "50052"
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
-      REDIS_URL: "redis:6379"
+      REDIS_URL: "redis://redis:6379"
       CACHE_TTL_SECONDS: 3600
 
   notification-service:
@@ -109,7 +109,7 @@ services:
       AMQP_URL: "amqp://guest:guest@rabbitmq:5672/"
       GATEWAY_URL: "http://mock-gateway:8080"
       WORKER_POOL_SIZE: "5"
-      REDIS_URL: "redis:6379"
+      REDIS_URL: "redis://redis:6379"
       CACHE_TTL_SECONDS: 3600
       
   mock-gateway:

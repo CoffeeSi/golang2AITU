@@ -31,9 +31,9 @@ type WorkerPool struct {
 	gatewayURL string
 }
 
-func NewWorkerPool(poolSize int, redisClient *redis.Client, gatewayURL string) *WorkerPool {
+func NewWorkerPool(poolSize int, bufferSize int, redisClient *redis.Client, gatewayURL string) *WorkerPool {
 	return &WorkerPool{
-		jobChan:    make(chan NotificationJob, poolSize),
+		jobChan:    make(chan NotificationJob, bufferSize),
 		redis:      redisClient,
 		gatewayURL: gatewayURL,
 	}
@@ -65,13 +65,23 @@ func (wp *WorkerPool) process(ctx context.Context, job NotificationJob) {
 	}
 	logState("info", job.IdempotencyKey, "processing", "", job.Attempts)
 
-	err := wp.sendToGateway(ctx, job)
+	exists, err := wp.redis.Exists(ctx, "job:"+job.IdempotencyKey).Result()
+	if err != nil {
+		logState("warn", job.IdempotencyKey, "idempotency_check_failed", err.Error(), job.Attempts)
+	} else if exists > 0 {
+		logState("info", job.IdempotencyKey, "duplicate_dropped_worker", "", job.Attempts)
+		return
+	}
+
+	err = wp.sendToGateway(ctx, job)
 	if err != nil {
 		wp.handleRetry(job, err)
 		return
 	}
 
-	wp.redis.Set(ctx, "job:"+job.IdempotencyKey, "done", 24*time.Hour)
+	if setErr := wp.redis.Set(ctx, "job:"+job.IdempotencyKey, "done", 24*time.Hour).Err(); setErr != nil {
+		logState("warn", job.IdempotencyKey, "idempotency_store_failed", setErr.Error(), job.Attempts)
+	}
 	logState("info", job.IdempotencyKey, "success", "", job.Attempts)
 }
 

@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/cache"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/event"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/model"
 	"github.com/CoffeeSi/golang2AITU/assignment4/doctor-service/internal/repository"
@@ -16,13 +15,13 @@ import (
 type DoctorUsecase struct {
 	repo      repository.DoctorRepositoryInterface
 	publisher event.DoctorEventPublisherInterface
-	cache     cache.CacheClientInterface
+	cache     CacheClientInterface
 }
 
 func NewDoctorUsecase(
 	repo repository.DoctorRepositoryInterface,
 	publisher event.DoctorEventPublisherInterface,
-	cache cache.CacheClientInterface,
+	cache CacheClientInterface,
 ) DoctorUsecase {
 	return DoctorUsecase{repo: repo, publisher: publisher, cache: cache}
 }
